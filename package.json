@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "test": "turbo run test",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "turbo run lint",
     "clean": "turbo run clean && rm -rf node_modules",
     "db:generate": "prisma generate",
@@ -24,12 +25,14 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
-    "prettier": "^3.5.0",
-    "typescript": "^5.8.0",
-    "ts-node": "^10.9.0",
     "@types/node": "^22.14.0",
-    "eslint": "^9.24.0"
+    "@vitest/coverage-v8": "^4.1.8",
+    "eslint": "^9.24.0",
+    "prettier": "^3.5.0",
+    "ts-node": "^10.9.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",

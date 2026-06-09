@@ -1,8 +1,9 @@
+import Redis from 'ioredis';
 import { createLogger } from '@exebox/logger';
 import { connectDatabase, disconnectDatabase } from '@exebox/database';
 import { createExecutionWorker, getQueueMetrics, gracefulShutdown } from '@exebox/queue';
 import { checkDockerAvailability } from '@exebox/sandbox';
-import { processExecutionJob } from './executor';
+import { processExecutionJob, disconnectRedis } from './executor';
 
 const logger = createLogger('Worker');
 
@@ -47,6 +48,7 @@ async function bootstrap() {
     clearInterval(metricsInterval);
     await worker.close();
     await disconnectDatabase();
+    disconnectRedis();
     logger.info('Worker shutdown complete');
     process.exit(0);
   };

@@ -130,7 +130,7 @@ export async function executeInSession(
   }
 
   const inspect = await exec.inspect();
-  return { stdout, stderr, exitCode: inspect.ExitCode };
+  return { stdout, stderr, exitCode: inspect.ExitCode ?? -1 };
 }
 
 function parseMemoryLimit(limit: string): number {

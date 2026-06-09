@@ -74,7 +74,7 @@ io.on('connection', (socket) => {
   });
 });
 
-sub.subscribe(EXECUTION_EVENTS.OUTPUT, EXECUTION_EVENTS.COMPLETED, EXECUTION_EVENTS.ERROR);
+sub.subscribe(EXECUTION_EVENTS.LOG, EXECUTION_EVENTS.COMPLETED, EXECUTION_EVENTS.FAILED);
 
 sub.on('message', (channel, message) => {
   try {

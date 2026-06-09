@@ -1,10 +1,22 @@
 import { Job } from 'bullmq';
+import Redis from 'ioredis';
 import { getDatabase } from '@exebox/database';
 import { executeInSandbox } from '@exebox/sandbox';
 import { createLogger } from '@exebox/logger';
+import { EXECUTION_EVENTS } from '@exebox/shared';
 import type { QueueJobData, TestResult } from '@exebox/shared';
 
 const logger = createLogger('Executor');
+
+const redisPub = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+
+function publishEvent(channel: string, executionId: string, data: any, sessionId?: string) {
+  redisPub.publish(channel, JSON.stringify({ executionId, sessionId, type: channel, data })).catch(() => {});
+}
+
+export function disconnectRedis() {
+  redisPub.disconnect();
+}
 
 const COMMENT_STYLES: Record<string, { line: string }> = {
   python: { line: '#' },
@@ -91,6 +103,7 @@ export async function processExecutionJob(job: Job<QueueJobData>) {
       data: { status: 'RUNNING' },
     });
 
+    publishEvent(EXECUTION_EVENTS.STARTED, executionId, { status: 'running' }, sessionId);
     await job.updateProgress(10);
 
     let stdout = '';
@@ -136,6 +149,15 @@ export async function processExecutionJob(job: Job<QueueJobData>) {
         stdout += result.stdout;
         stderr += result.stderr;
 
+        publishEvent(EXECUTION_EVENTS.LOG, executionId, {
+          testCase: i + 1,
+          total: testCases.length,
+          passed,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          runtime: result.runtime,
+        }, sessionId);
+
         await job.updateProgress(Math.round(((i + 1) / testCases.length) * 80) + 10);
       }
 
@@ -167,6 +189,13 @@ export async function processExecutionJob(job: Job<QueueJobData>) {
 
       stdout = result.stdout;
       stderr = result.stderr;
+
+      publishEvent(EXECUTION_EVENTS.LOG, executionId, {
+        stdout: result.stdout,
+        stderr: result.stderr,
+        runtime: result.runtime,
+        memoryKb: result.memoryUsed,
+      }, sessionId);
       runtime = result.runtime;
       memoryUsed = result.memoryUsed;
       exitCode = result.exitCode;
@@ -188,6 +217,12 @@ export async function processExecutionJob(job: Job<QueueJobData>) {
             error: 'Execution timed out',
           },
         });
+        publishEvent(EXECUTION_EVENTS.TIMEOUT, executionId, {
+          status: 'timeout',
+          stdout,
+          stderr,
+          runtime,
+        }, sessionId);
         return;
       }
 
@@ -206,6 +241,14 @@ export async function processExecutionJob(job: Job<QueueJobData>) {
     }
 
     await job.updateProgress(100);
+    publishEvent(EXECUTION_EVENTS.COMPLETED, executionId, {
+      status: 'completed',
+      stdout,
+      stderr,
+      runtime,
+      memoryKb: memoryUsed,
+      exitCode,
+    }, sessionId);
     logger.info({ executionId, status: 'completed' }, 'Execution job completed');
   } catch (error: any) {
     logger.error({ executionId, error: error.message }, 'Execution job failed');
@@ -218,6 +261,11 @@ export async function processExecutionJob(job: Job<QueueJobData>) {
         error: error.message,
       },
     });
+
+    publishEvent(EXECUTION_EVENTS.FAILED, executionId, {
+      status: 'failed',
+      error: error.message,
+    }, sessionId);
 
     throw error;
   }

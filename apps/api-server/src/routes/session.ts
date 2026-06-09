@@ -55,7 +55,7 @@ router.post('/', authMiddleware(), async (req: Request, res: Response) => {
 
 router.post('/:id/exec', authMiddleware(), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const parsed = sessionExecSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -138,7 +138,7 @@ router.post('/:id/exec', authMiddleware(), async (req: Request, res: Response) =
 
 router.delete('/:id', authMiddleware(), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const db = getDatabase();
 
     const session = await db.session.findUnique({

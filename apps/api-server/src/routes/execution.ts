@@ -9,7 +9,7 @@ const router = Router();
 
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const db = getDatabase();
 
     const execution = await db.execution.findUnique({

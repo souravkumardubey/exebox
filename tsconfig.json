@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "libs/shared" },
+    { "path": "libs/logger" },
+    { "path": "libs/sandbox" },
+    { "path": "libs/queue" },
+    { "path": "libs/database" },
+    { "path": "apps/api-server" },
+    { "path": "apps/worker" },
+    { "path": "apps/ws-server" }
+  ]
+}

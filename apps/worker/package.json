@@ -1,0 +1,22 @@
+{
+  "name": "@exebox/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "bullmq": "^5.46.0",
+    "@exebox/shared": "*",
+    "@exebox/sandbox": "*",
+    "@exebox/queue": "*",
+    "@exebox/database": "*",
+    "@exebox/logger": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}

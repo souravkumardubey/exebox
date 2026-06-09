@@ -1,0 +1,20 @@
+{
+  "name": "@exebox/ws-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.0",
+    "ioredis": "^5.6.0",
+    "@exebox/shared": "*",
+    "@exebox/logger": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}

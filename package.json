@@ -1,0 +1,39 @@
+{
+  "name": "exebox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Code Sandbox — A REST API for AI agents to securely run untrusted code in isolated Docker containers",
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "format": "prettier --write \"**/*.{ts,js,json,css,md}\""
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "prettier": "^3.5.0",
+    "typescript": "^5.8.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^22.14.0",
+    "eslint": "^9.24.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.6.0",
+    "prisma": "^6.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

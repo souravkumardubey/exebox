@@ -6,7 +6,9 @@ import executeRoutes from './routes/execute';
 import sessionRoutes from './routes/session';
 import executionRoutes from './routes/execution';
 import languageRoutes from './routes/languages';
+import apiKeysRoutes from './routes/api-keys';
 import { rateLimitMiddleware } from './middleware/rate-limit';
+import { errorHandler } from './middleware/error-handler';
 
 const logger = createLogger('API');
 
@@ -26,10 +28,13 @@ app.use('/v1/execute', executeRoutes);
 app.use('/v1/sessions', sessionRoutes);
 app.use('/v1/executions', executionRoutes);
 app.use('/v1/languages', languageRoutes);
+app.use('/v1/api-keys', apiKeysRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
+
+app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT }, 'API server listening');

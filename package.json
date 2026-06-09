@@ -19,6 +19,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
+    "create-key": "tsx scripts/create-key.ts",
     "format": "prettier --write \"**/*.{ts,js,json,css,md}\""
   },
   "prisma": {

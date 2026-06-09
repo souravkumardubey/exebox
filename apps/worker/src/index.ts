@@ -4,6 +4,8 @@ import { connectDatabase, disconnectDatabase } from '@exebox/database';
 import { createExecutionWorker, getQueueMetrics, gracefulShutdown } from '@exebox/queue';
 import { checkDockerAvailability } from '@exebox/sandbox';
 import { processExecutionJob, disconnectRedis } from './executor';
+import { startSessionReaper } from './reaper';
+import './health';
 
 const logger = createLogger('Worker');
 
@@ -30,6 +32,8 @@ async function bootstrap() {
   });
 
   logger.info('Worker started and listening for jobs');
+
+  startSessionReaper();
 
   const metricsInterval = setInterval(async () => {
     try {

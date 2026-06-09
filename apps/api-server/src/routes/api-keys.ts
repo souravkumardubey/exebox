@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { createHash, randomBytes } from 'crypto';
+import Redis from 'ioredis';
 import { createLogger } from '@exebox/logger';
 import { getDatabase } from '@exebox/database';
 import { authMiddleware } from '../middleware/auth';
@@ -7,10 +8,27 @@ import { z } from 'zod';
 
 const logger = createLogger('ApiKeysRoute');
 const router = Router();
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 const createKeySchema = z.object({
   name: z.string().min(1).max(100),
 });
+
+async function syncToRedis(keyHash: string) {
+  try {
+    await redis.sadd('exebox:api_keys', keyHash);
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Failed to sync key to Redis');
+  }
+}
+
+async function removeFromRedis(keyHash: string) {
+  try {
+    await redis.srem('exebox:api_keys', keyHash);
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Failed to remove key from Redis');
+  }
+}
 
 router.post('/', authMiddleware(), async (req: Request, res: Response) => {
   try {
@@ -33,6 +51,8 @@ router.post('/', authMiddleware(), async (req: Request, res: Response) => {
     await db.apiKey.create({
       data: { name, keyPrefix: prefix, keyHash },
     });
+
+    await syncToRedis(keyHash);
 
     logger.info({ keyPrefix: prefix }, 'API key created');
 
@@ -91,6 +111,8 @@ router.delete('/:id', authMiddleware(), async (req: Request, res: Response) => {
       where: { id },
       data: { revoked: true },
     });
+
+    await removeFromRedis(existing.keyHash);
 
     logger.info({ keyId: id, name: existing.name }, 'API key revoked');
 

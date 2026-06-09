@@ -4,6 +4,7 @@ import Redis from 'ioredis';
 import { createHash } from 'crypto';
 import { createLogger } from '@exebox/logger';
 import { EXECUTION_EVENTS } from '@exebox/shared';
+import './health';
 
 const logger = createLogger('WS');
 
@@ -29,9 +30,7 @@ io.use(async (socket, next) => {
   const keyHash = createHash('sha256').update(token).digest('hex');
 
   try {
-    const redis = new Redis(REDIS_URL);
-    const valid = await redis.sismember('exebox:api_keys', keyHash);
-    await redis.quit();
+    const valid = await pub.sismember('exebox:api_keys', keyHash);
 
     if (!valid) {
       return next(new Error('Invalid or revoked API key'));

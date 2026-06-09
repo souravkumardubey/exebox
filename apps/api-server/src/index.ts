@@ -7,6 +7,7 @@ import sessionRoutes from './routes/session';
 import executionRoutes from './routes/execution';
 import languageRoutes from './routes/languages';
 import apiKeysRoutes from './routes/api-keys';
+import openapiRoutes from './routes/openapi';
 import { rateLimitMiddleware } from './middleware/rate-limit';
 import { errorHandler } from './middleware/error-handler';
 
@@ -29,6 +30,7 @@ app.use('/v1/sessions', sessionRoutes);
 app.use('/v1/executions', executionRoutes);
 app.use('/v1/languages', languageRoutes);
 app.use('/v1/api-keys', apiKeysRoutes);
+app.use('/v1', openapiRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });

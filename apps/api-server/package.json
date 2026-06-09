@@ -13,6 +13,7 @@
     "cors": "^2.8.5",
     "helmet": "^8.1.0",
     "zod": "^3.24.0",
+    "ioredis": "^5.6.0",
     "@exebox/shared": "*",
     "@exebox/queue": "*",
     "@exebox/database": "*",

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: exebox
+          POSTGRES_PASSWORD: exebox_ci
+          POSTGRES_DB: exebox
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready -U exebox
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd redis-cli ping
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://exebox:exebox_ci@localhost:5432/exebox
+
+      - run: echo "DOCKER_SOCKET=/dev/null" >> .env
+
+      - run: npx turbo run build
+
+      - run: npm test
+
+      - run: npm run db:seed
+        env:
+          DATABASE_URL: postgresql://exebox:exebox_ci@localhost:5432/exebox
+          REDIS_URL: redis://localhost:6379

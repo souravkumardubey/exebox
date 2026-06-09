@@ -18,13 +18,13 @@
 
 ### Services
 
-| Service | Port | Description |
-|---------|------|-------------|
-| **API Server** | `4000` | REST API for code execution, sessions, and API key auth |
-| **Worker** | — | Processes execution jobs via BullMQ, runs code in Docker sandboxes |
-| **WS Gateway** | `4001` | WebSocket server (Socket.IO) for streaming execution output |
-| **PostgreSQL** | `5432` | Persistent storage for executions, sessions, API keys |
-| **Redis** | `6379` | Job queue (BullMQ) + PubSub for real-time events |
+| Service | Port | Health | Description |
+|---------|------|--------|-------------|
+| **API Server** | `4000` | `/health` | REST API for code execution, sessions, and API key auth |
+| **Worker** | `4003` | `/health` | Processes execution jobs via BullMQ, runs code in Docker sandboxes |
+| **WS Gateway** | `4001` | `/health` | WebSocket server (Socket.IO) for streaming execution output |
+| **PostgreSQL** | `5432` | — | Persistent storage for executions, sessions, API keys |
+| **Redis** | `6379` | — | Job queue (BullMQ) + rate limiter + PubSub for real-time events |
 
 ### Supported Languages
 
@@ -38,16 +38,18 @@
 | C++17 | `exebox-cpp` | 15s | 256MB |
 | Rust 1.77 | `exebox-rust` | 20s | 512MB |
 
-## Quick Start
+## Getting Started
 
 ### Prerequisites
 
 - Node.js >= 20
-- Docker
+- Docker (with Orbstack, Docker Desktop, or equivalent)
 - PostgreSQL 16
 - Redis 7
 
-### 1. Clone & Install
+### Full Startup Sequence
+
+#### 1. Clone & Install
 
 ```bash
 git clone https://github.com/souravkumardubey/exebox.git
@@ -55,37 +57,83 @@ cd exebox
 npm install
 ```
 
-### 2. Build Sandbox Images
-
-```bash
-docker/docker/build.sh
-```
-
-### 3. Setup Database
+#### 2. Configure Environment
 
 ```bash
 cp .env.example .env
-npx prisma generate
-npx prisma db push
+# Edit .env if your PostgreSQL/Redis use non-default credentials
 ```
 
-### 4. Start Services
+#### 3. Build Sandbox Runner Images
 
 ```bash
-# Option A: All via Docker
-docker compose -f docker/docker-compose.yml up
+# Build all 6 sandbox images (python, node, go, java, cpp, rust)
+docker/docker/build.sh
 
-# Option B: Manual (terminals)
-npm run dev            # API server (port 4000)
-npm run dev --filter=@exebox/worker    # Worker
-npm run dev --filter=@exebox/ws-server # WS gateway (port 4001)
+# Or build a single image
+docker/docker/build.sh python
+```
+
+These images are the isolated environments where untrusted code executes.
+
+#### 4. Setup Database
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Run migrations (creates tables and enums)
+npx prisma migrate dev --name init
+
+# Alternative (development, no migration history):
+# npx prisma db push
+```
+
+#### 5. Seed Initial Data
+
+```bash
+npm run db:seed
+```
+
+This creates admin and development API keys and syncs them to Redis for WS authentication. **Save the printed keys.**
+
+#### 6. Start Services
+
+```bash
+# Option A: All services via Docker Compose
+docker compose -f docker/docker-compose.yml up --build
+
+# Option B: Manually (3 terminals)
+npm run dev                              # API server (port 4000)
+npm run dev --filter=@exebox/worker      # Worker (health on 4003)
+npm run dev --filter=@exebox/ws-server   # WS gateway (port 4001, health on 4004)
+
+# Dependencies (PostgreSQL + Redis) must be running separately in either case:
+docker run -d --name exebox-pg -e POSTGRES_PASSWORD=exebox_dev \
+  -e POSTGRES_USER=exebox -e POSTGRES_DB=exebox -p 5432:5432 postgres:16-alpine
+docker run -d --name exebox-redis -p 6379:6379 redis:7-alpine
+```
+
+### Creating Additional API Keys
+
+```bash
+# Via CLI
+npm run create-key -- MyKeyName
+
+# Via API (requires existing admin key)
+curl -X POST http://localhost:4000/v1/api-keys \
+  -H "Authorization: Bearer exe_sk_<admin_key>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "MyKeyName"}'
 ```
 
 ## API Reference
 
 Base URL: `http://localhost:4000/v1`
 
-All requests (except `/languages`) require an API key via `Authorization: Bearer exe_sk_...`.
+Full OpenAPI spec available at `GET /v1/openapi.json`.
+
+All requests (except `/languages` and `/health`) require an API key via `Authorization: Bearer exe_sk_...`.
 
 ### Execute Code
 
@@ -164,6 +212,16 @@ socket.on('execution:log', (data) => console.log(data.stdout));
 socket.on('execution:completed', (data) => console.log('Done:', data));
 ```
 
+## API Key Management
+
+```
+POST   /v1/api-keys          # Create key (body: { name })
+GET    /v1/api-keys          # List keys (redacted)
+DELETE /v1/api-keys/:id      # Revoke key
+```
+
+Keys are formatted as `exe_sk_{prefix}_{random}` and stored as SHA-256 hashes. The plaintext key is shown once on creation — save it securely.
+
 ## Security
 
 - **No network** in sandbox containers (`NetworkMode: none`)
@@ -173,7 +231,9 @@ socket.on('execution:completed', (data) => console.log('Done:', data));
 - **PID limit** (500) prevents fork bombs
 - **Temp filesystem** with `noexec` for `/tmp`
 - **File descriptor limits** (1024 soft, 2048 hard)
-- **API key auth** with SHA-256 hashed keys
+- **API key auth** with SHA-256 hashed keys, never stored in plaintext
+- **Rate limiting** via Redis sliding window (per-key)
+- **Session reaper** auto-destroys expired containers every 5 minutes
 
 ## Project Structure
 
@@ -188,14 +248,38 @@ exebox/
 │   ├── logger/         # Pino logger
 │   ├── database/       # Prisma client
 │   ├── sandbox/        # Dockerode engine
-│   └── queue/          # BullMQ queue
+│   └── queue/          # BullMQ queue + worker factory
 ├── docker/
-│   ├── *.Dockerfile    # Sandbox runner images
+│   ├── *.Dockerfile    # Sandbox runner images (6 languages)
+│   ├── api.Dockerfile  # API server container
+│   ├── worker.Dockerfile
+│   ├── ws.Dockerfile
 │   ├── docker-compose.yml
 │   └── build.sh
 ├── prisma/
-│   └── schema.prisma
-└── package.json
+│   ├── schema.prisma
+│   ├── migrations/     # SQL migration files
+│   └── seed.ts         # Initial API key generator
+├── scripts/
+│   └── create-key.ts   # CLI key generator
+├── tests/              # Vitest test suite
+└── .github/workflows/  # GitHub Actions CI
+```
+
+## Development
+
+```bash
+# Build all packages
+npm run build
+
+# Run tests
+npm test
+
+# Watch mode
+npm run test:watch
+
+# Create API key (requires DB + Redis running)
+npm run create-key -- MyKeyName
 ```
 
 ## License

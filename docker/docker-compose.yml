@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: exebox
+      POSTGRES_PASSWORD: exebox_dev
+      POSTGRES_DB: exebox
+    ports:
+      - "5432:5432"
+    volumes:
+      - exebox_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exebox"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-server:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      API_PORT: "4000"
+      DATABASE_URL: "postgresql://exebox:exebox_dev@postgres:5432/exebox"
+      REDIS_URL: "redis://redis:6379"
+      RATE_LIMIT_WINDOW_MS: "60000"
+      RATE_LIMIT_MAX: "60"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/worker.Dockerfile
+    environment:
+      DATABASE_URL: "postgresql://exebox:exebox_dev@postgres:5432/exebox"
+      REDIS_URL: "redis://redis:6379"
+      DOCKER_SOCKET: "/var/run/docker.sock"
+      WORKER_CONCURRENCY: "5"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ws-server:
+    build:
+      context: ..
+      dockerfile: docker/ws.Dockerfile
+    ports:
+      - "4001:4001"
+    environment:
+      WS_PORT: "4001"
+      REDIS_URL: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  exebox_pgdata:

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "bullmq": "^5.46.0",
+    "ioredis": "^5.6.0",
     "@exebox/shared": "*",
     "@exebox/sandbox": "*",
     "@exebox/queue": "*",
